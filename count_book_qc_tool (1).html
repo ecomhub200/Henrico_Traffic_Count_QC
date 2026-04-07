@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Henrico County Count Book QC Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0c0f1a;
+    --surface: #141829;
+    --surface2: #1b2036;
+    --border: #262c47;
+    --text: #e2e6f0;
+    --text2: #8b92ab;
+    --accent: #4f8cff;
+    --accent2: #3b6fcc;
+    --green: #34d399;
+    --green-bg: rgba(52,211,153,.08);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,.08);
+    --orange: #fbbf24;
+    --orange-bg: rgba(251,191,36,.08);
+    --blue-bg: rgba(79,140,255,.08);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  header .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--blue-bg);
+    border: 1px solid rgba(79,140,255,.15);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    margin-bottom: 6px;
+  }
+
+  header p { color: var(--text2); font-size: 14px; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s;
+    background: var(--surface);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--blue-bg);
+  }
+  .upload-zone input { display:none; }
+  .upload-zone .icon { font-size: 40px; margin-bottom: 12px; opacity: .7; }
+  .upload-zone h3 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+  .upload-zone span { color: var(--text2); font-size: 13px; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 28px 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-card .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .stat-card .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; text-transform: uppercase; letter-spacing: .8px; }
+
+  /* Sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s;
+  }
+  .section-header:hover { background: var(--surface2); }
+  .section-header .left { display: flex; align-items: center; gap: 10px; }
+  .section-header .sev {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .sev.critical { color: var(--red); background: var(--red-bg); }
+  .sev.moderate { color: var(--orange); background: var(--orange-bg); }
+  .sev.low { color: var(--accent); background: var(--blue-bg); }
+  .sev.info { color: var(--green); background: var(--green-bg); }
+  .sev.pass { color: var(--green); background: var(--green-bg); }
+
+  .section-header .title { font-weight: 600; font-size: 14px; }
+  .section-header .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .section-header .chevron {
+    transition: transform .2s;
+    color: var(--text2);
+    font-size: 18px;
+  }
+  .section-header .chevron.open { transform: rotate(180deg); }
+
+  .section-body {
+    padding: 0 20px 20px;
+    display: none;
+  }
+  .section-body.open { display: block; }
+
+  .section-body .note {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+  }
+  .note b { color: var(--text); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--text2);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+  }
+  tbody td {
+    padding: 7px 10px;
+    border-bottom: 1px solid rgba(38,44,71,.4);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  tbody tr:hover { background: var(--surface2); }
+  .td-road { font-family: 'DM Sans', sans-serif; font-weight: 500; }
+  .td-diff { font-weight: 600; }
+  .td-neg { color: var(--red); }
+  .td-pos { color: var(--green); }
+  .td-fix { color: var(--green); font-size: 11px; }
+
+  .table-scroll { max-height: 340px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+  .table-scroll::-webkit-scrollbar { width: 6px; }
+  .table-scroll::-webkit-scrollbar-track { background: var(--surface); }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--accent); background: var(--blue-bg); }
+
+  .correction-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .correction-tag.auto { color: var(--green); background: var(--green-bg); }
+  .correction-tag.manual { color: var(--orange); background: var(--orange-bg); }
+
+  .empty-msg {
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+    font-size: 14px;
+  }
+
+  .summary-banner {
+    background: linear-gradient(135deg, rgba(52,211,153,.06), rgba(79,140,255,.06));
+    border: 1px solid rgba(52,211,153,.15);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 24px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .summary-banner .icon { font-size: 28px; flex-shrink: 0; }
+  .summary-banner h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .summary-banner p { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .animate-in { animation: fadeIn .4s ease-out both; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+const app = document.getElementById('app');
+
+// ── STATE ──
+let rawData = null;
+let cleanData = null;
+let issues = null;
+let fileName = '';
+let openSections = {};
+
+// ── RENDER ──
+function render() {
+  if (!rawData) { renderUpload(); return; }
+  renderReport();
+}
+
+function renderUpload() {
+  app.innerHTML = `
+    <header>
+      <div class="badge">Traffic Engineering Division</div>
+      <h1>Count Book QC Tool</h1>
+      <p>Henrico County · Upload your yearly count book to audit &amp; auto-correct</p>
+    </header>
+    <div class="upload-zone" id="dropzone">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      <div class="icon">📊</div>
+      <h3>Drop your Count Book here</h3>
+      <span>.xlsx or .xls &nbsp;·&nbsp; Same column format as the yearly count book</span>
+    </div>
+  `;
+  const dz = document.getElementById('dropzone');
+  const fi = document.getElementById('fileInput');
+  dz.addEventListener('click', () => fi.click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+  fi.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+}
+
+function handleFile(file) {
+  fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, { defval: null });
+    parseData(json);
+    render();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── PARSE ──
+function parseData(json) {
+  // Map columns
+  rawData = json.map((r, i) => {
+    const keys = Object.keys(r);
+    // Find columns by known header names
+    const roadway = r['Roadway'] ?? r[keys[0]];
+    const location = r['Location'] ?? r[keys[3]] ?? r[keys[1]];
+    const dir1 = r['Dir 1'] ?? r[keys.find(k => k.toLowerCase().includes('dir 1') || k === 'Dir 1')] ?? r[keys[7]];
+    const vol1 = r['Volume 1'] ?? r[keys.find(k => k.toLowerCase().includes('volume 1') || k === 'Volume 1')] ?? r[keys[8]];
+    const dir2 = r['Dir 2'] ?? r[keys.find(k => k.toLowerCase().includes('dir 2') || k === 'Dir 2')] ?? r[keys[9]];
+    const vol2 = r['Volume 2'] ?? r[keys.find(k => k.toLowerCase().includes('volume 2') || k === 'Volume 2')] ?? r[keys[10]];
+    const totalVol = r['Total Vol'] ?? r[keys.find(k => k.toLowerCase().includes('total') )] ?? r[keys[11]];
+    const date = r['Date'] ?? r[keys.find(k => k.toLowerCase() === 'date')] ?? r[keys[12]];
+    const type = r['Type'] ?? r[keys.find(k => k.toLowerCase() === 'type')] ?? r[keys[13]];
+
+    return { _row: i+2, roadway, location, dir1, vol1: toNum(vol1), dir2, vol2: toNum(vol2), totalVol: toNum(totalVol), date, type };
+  });
+
+  runChecks();
+}
+
+function toNum(v) { return (v === null || v === undefined || v === '') ? null : Number(v); }
+
+function fmtDate(d) {
+  if (!d) return '';
+  if (d instanceof Date) return `${d.getMonth()+1}/${d.getDate()}`;
+  const p = new Date(d);
+  return isNaN(p) ? String(d) : `${p.getMonth()+1}/${p.getDate()}`;
+}
+
+function fmtNum(v) { return v === null ? 'N/A' : v.toLocaleString(); }
+
+// ── QUALITY CHECKS ──
+function runChecks() {
+  issues = {
+    sumMismatch: [],
+    trailingSpace: [],
+    dirPairingInconsistent: [],
+    missingVolumes: [],
+    zeroVolumes: [],
+    imbalanced: [],
+    outliers: [],
+    duplicates: [],
+    dateAnomalies: [],
+    negativeVolumes: [],
+  };
+
+  // Deep-copy for corrections
+  cleanData = rawData.map(r => ({ ...r }));
+
+  // 1. Trim direction codes
+  cleanData.forEach(r => {
+    if (typeof r.dir1 === 'string' && r.dir1 !== r.dir1.trim()) {
+      issues.trailingSpace.push({ row: r._row, roadway: r.roadway, original: `"${r.dir1}"`, corrected: `"${r.dir1.trim()}"` });
+      r.dir1 = r.dir1.trim();
+    }
+    if (typeof r.dir2 === 'string' && r.dir2 !== r.dir2.trim()) {
+      issues.trailingSpace.push({ row: r._row, roadway: r.roadway, original: `"${r.dir2}"`, corrected: `"${r.dir2.trim()}"` });
+      r.dir2 = r.dir2.trim();
+    }
+  });
+
+  // 2. Sum mismatch
+  cleanData.forEach(r => {
+    if (r.vol1 !== null && r.vol2 !== null && r.totalVol !== null) {
+      const calc = r.vol1 + r.vol2;
+      if (calc !== r.totalVol) {
+        const diff = r.totalVol - calc;
+        issues.sumMismatch.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), vol1: r.vol1, vol2: r.vol2, calc, recorded: r.totalVol, diff });
+        // Auto-correct: set TotalVol = Vol1 + Vol2
+        r.totalVol = calc;
+      }
+    }
+  });
+
+  // 3. Missing volumes
+  cleanData.forEach(r => {
+    if (r.vol1 === null || r.vol2 === null) {
+      issues.missingVolumes.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), vol1: r.vol1, vol2: r.vol2, totalVol: r.totalVol });
+      // Auto-fill if one side missing but total exists
+      if (r.vol1 === null && r.vol2 !== null && r.totalVol !== null) { r.vol1 = r.totalVol - r.vol2; }
+      if (r.vol2 === null && r.vol1 !== null && r.totalVol !== null) { r.vol2 = r.totalVol - r.vol1; }
+    }
+  });
+
+  // 4. Zero volumes
+  cleanData.forEach(r => {
+    if (r.vol1 === 0 || r.vol2 === 0) {
+      issues.zeroVolumes.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), vol1: r.vol1, vol2: r.vol2 });
+    }
+  });
+
+  // 5. Negative volumes
+  cleanData.forEach(r => {
+    if ((r.vol1 !== null && r.vol1 < 0) || (r.vol2 !== null && r.vol2 < 0) || (r.totalVol !== null && r.totalVol < 0)) {
+      issues.negativeVolumes.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), vol1: r.vol1, vol2: r.vol2, totalVol: r.totalVol });
+    }
+  });
+
+  // 6. Imbalanced
+  cleanData.forEach(r => {
+    if (r.vol1 !== null && r.vol2 !== null && r.totalVol > 0) {
+      const pct = r.vol1 / r.totalVol;
+      if (pct > 0.8 || pct < 0.2) {
+        issues.imbalanced.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), vol1: r.vol1, vol2: r.vol2, totalVol: r.totalVol, split: `${Math.round(pct*100)}/${Math.round((1-pct)*100)}` });
+      }
+    }
+  });
+
+  // 7. Outliers (>3 std dev)
+  const vols = cleanData.map(r => r.totalVol).filter(v => v !== null);
+  const mean = vols.reduce((a,b)=>a+b,0)/vols.length;
+  const std = Math.sqrt(vols.reduce((a,b)=>a+(b-mean)**2,0)/vols.length);
+  const thresh = mean + 3*std;
+  cleanData.forEach(r => {
+    if (r.totalVol !== null && r.totalVol > thresh) {
+      issues.outliers.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), totalVol: r.totalVol, type: r.type });
+    }
+  });
+  issues._outlierThresh = Math.round(thresh);
+  issues._mean = Math.round(mean);
+  issues._std = Math.round(std);
+
+  // 8. Duplicates (same road+location+date+type)
+  const seen = {};
+  cleanData.forEach(r => {
+    const key = `${r.roadway}||${r.location}||${r.date}||${r.type}`;
+    if (!seen[key]) { seen[key] = []; }
+    seen[key].push(r);
+  });
+  Object.values(seen).filter(g => g.length > 1).forEach(g => {
+    g.forEach(r => issues.duplicates.push({ row: r._row, roadway: r.roadway, location: r.location, date: fmtDate(r.date), type: r.type }));
+  });
+
+  // 9. Date anomalies — check if non-current-year
+  const yearCounts = {};
+  cleanData.forEach(r => {
+    if (r.date) {
+      const d = new Date(r.date);
+      if (!isNaN(d)) { const y = d.getFullYear(); yearCounts[y] = (yearCounts[y]||0)+1; }
+    }
+  });
+  const dominantYear = Object.entries(yearCounts).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  if (dominantYear) {
+    cleanData.forEach(r => {
+      if (r.date) {
+        const d = new Date(r.date);
+        if (!isNaN(d) && d.getFullYear() !== Number(dominantYear)) {
+          issues.dateAnomalies.push({ row: r._row, roadway: r.roadway, date: fmtDate(r.date), year: d.getFullYear(), expected: dominantYear });
+        }
+      }
+    });
+  }
+
+  // 10. Direction pairing inconsistency
+  const roadDirs = {};
+  cleanData.forEach(r => {
+    if (!roadDirs[r.roadway]) roadDirs[r.roadway] = { d1: new Set(), d2: new Set() };
+    if (r.dir1) roadDirs[r.roadway].d1.add(r.dir1);
+    if (r.dir2) roadDirs[r.roadway].d2.add(r.dir2);
+  });
+  Object.entries(roadDirs).forEach(([road, dirs]) => {
+    if (dirs.d1.size > 1 || dirs.d2.size > 1) {
+      issues.dirPairingInconsistent.push({ roadway: road, dir1: [...dirs.d1].join(', '), dir2: [...dirs.d2].join(', ') });
+    }
+  });
+}
+
+// ── RENDER REPORT ──
+function renderReport() {
+  const totalIssues = issues.sumMismatch.length + issues.trailingSpace.length + issues.missingVolumes.length +
+    issues.zeroVolumes.length + issues.imbalanced.length + issues.negativeVolumes.length;
+  const autoFixed = issues.sumMismatch.length + issues.trailingSpace.length + issues.missingVolumes.length;
+
+  app.innerHTML = `
+    <header>
+      <div class="badge">Traffic Engineering Division</div>
+      <h1>Count Book QC Report</h1>
+      <p>${fileName}</p>
+    </header>
+
+    <div class="stats-bar animate-in">
+      <div class="stat-card"><div class="val">${rawData.length}</div><div class="lbl">Records</div></div>
+      <div class="stat-card"><div class="val">${new Set(rawData.map(r=>r.roadway)).size}</div><div class="lbl">Roads</div></div>
+      <div class="stat-card"><div class="val" style="color:var(--red)">${totalIssues}</div><div class="lbl">Issues Found</div></div>
+      <div class="stat-card"><div class="val" style="color:var(--green)">${autoFixed}</div><div class="lbl">Auto-Fixed</div></div>
+    </div>
+
+    <div class="summary-banner animate-in" style="animation-delay:.1s">
+      <div class="icon">✅</div>
+      <div>
+        <h3>Auto-Corrections Applied</h3>
+        <p>
+          <b>${issues.sumMismatch.length}</b> volume sums recalculated (TotalVol = Vol1 + Vol2) &nbsp;·&nbsp;
+          <b>${issues.trailingSpace.length}</b> direction codes trimmed &nbsp;·&nbsp;
+          <b>${issues.missingVolumes.length}</b> missing directional volumes back-filled from total.
+          Download the corrected file below.
+        </p>
+      </div>
+    </div>
+
+    <div id="sections"></div>
+
+    <div class="btn-row animate-in" style="animation-delay:.2s">
+      <button class="btn btn-primary" onclick="downloadCorrected()">⬇ Download Corrected File</button>
+      <button class="btn btn-outline" onclick="resetApp()">↻ Upload Another File</button>
+    </div>
+  `;
+
+  const container = document.getElementById('sections');
+  const checks = [
+    { key: 'sumMismatch', sev: 'critical', title: 'Volume Sum Mismatches', fix: 'auto',
+      note: 'TotalVol ≠ Vol1 + Vol2. <b>Auto-corrected</b>: TotalVol set to Vol1 + Vol2.',
+      headers: ['Row','Roadway','Date','Vol1','Vol2','Calculated','Was Recorded','Diff'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td>${fmtNum(r.vol1)}</td><td>${fmtNum(r.vol2)}</td><td>${fmtNum(r.calc)}</td><td>${fmtNum(r.recorded)}</td><td class="td-diff ${r.diff<0?'td-neg':'td-pos'}">${r.diff>0?'+':''}${fmtNum(r.diff)}</td>`
+    },
+    { key: 'trailingSpace', sev: 'moderate', title: 'Direction Code Whitespace', fix: 'auto',
+      note: 'Direction codes contained trailing spaces. <b>Auto-corrected</b>: all codes trimmed.',
+      headers: ['Row','Roadway','Original','Corrected'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.original}</td><td class="td-fix">${r.corrected}</td>`,
+      limit: 15
+    },
+    { key: 'missingVolumes', sev: 'moderate', title: 'Missing Directional Volumes', fix: 'auto',
+      note: 'Vol1 or Vol2 was blank. <b>Auto-corrected</b>: back-filled from TotalVol where possible.',
+      headers: ['Row','Roadway','Date','Vol1','Vol2','TotalVol'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td>${fmtNum(r.vol1)}</td><td>${fmtNum(r.vol2)}</td><td>${fmtNum(r.totalVol)}</td>`
+    },
+    { key: 'imbalanced', sev: 'low', title: 'Extreme Directional Imbalance (>80/20)', fix: 'manual',
+      note: 'One direction carries >80% of traffic. May indicate equipment malfunction. <b>Review manually.</b>',
+      headers: ['Row','Roadway','Date','Vol1','Vol2','Total','Split'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td>${fmtNum(r.vol1)}</td><td>${fmtNum(r.vol2)}</td><td>${fmtNum(r.totalVol)}</td><td>${r.split}</td>`
+    },
+    { key: 'zeroVolumes', sev: 'low', title: 'Zero-Volume Directions', fix: 'manual',
+      note: 'One direction recorded zero vehicles. Possible tube counter failure. <b>Review manually.</b>',
+      headers: ['Row','Roadway','Date','Vol1','Vol2'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td>${fmtNum(r.vol1)}</td><td>${fmtNum(r.vol2)}</td>`
+    },
+    { key: 'negativeVolumes', sev: 'critical', title: 'Negative Volumes', fix: 'manual',
+      note: 'Negative volume values detected. <b>Review manually.</b>',
+      headers: ['Row','Roadway','Date','Vol1','Vol2','TotalVol'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td>${fmtNum(r.vol1)}</td><td>${fmtNum(r.vol2)}</td><td>${fmtNum(r.totalVol)}</td>`
+    },
+    { key: 'outliers', sev: 'info', title: `Volume Outliers (> ${fmtNum(issues._outlierThresh || 0)})`, fix: 'manual',
+      note: `Volumes exceeding mean (${fmtNum(issues._mean)}) + 3×std (${fmtNum(issues._std)}). Often valid for arterials. <b>Verify.</b>`,
+      headers: ['Row','Roadway','Date','TotalVol','Type'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td>${fmtNum(r.totalVol)}</td><td>${r.type}</td>`
+    },
+    { key: 'dirPairingInconsistent', sev: 'info', title: 'Direction Pairing Inconsistency', fix: 'manual',
+      note: 'Roads using multiple direction pairs across entries. May reflect road geometry changes. <b>Verify.</b>',
+      headers: ['Roadway','Dir1 Values','Dir2 Values'],
+      rowFn: r => `<td class="td-road">${r.roadway}</td><td>${r.dir1}</td><td>${r.dir2}</td>`
+    },
+    { key: 'duplicates', sev: 'moderate', title: 'Potential Duplicates', fix: 'manual',
+      note: 'Same Roadway + Location + Date + Type appeared more than once. <b>Review manually.</b>',
+      headers: ['Row','Roadway','Location','Date','Type'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.location||''}</td><td>${r.date}</td><td>${r.type}</td>`
+    },
+    { key: 'dateAnomalies', sev: 'moderate', title: 'Date Year Anomalies', fix: 'manual',
+      note: 'Records with year different from the dominant dataset year. <b>Review manually.</b>',
+      headers: ['Row','Roadway','Date','Year','Expected'],
+      rowFn: r => `<td>${r.row}</td><td class="td-road">${r.roadway}</td><td>${r.date}</td><td class="td-neg">${r.year}</td><td>${r.expected}</td>`
+    },
+  ];
+
+  checks.forEach((c, idx) => {
+    const items = issues[c.key];
+    const count = items.length;
+    const isOpen = openSections[c.key] || false;
+    const sevClass = count === 0 ? 'pass' : c.sev;
+    const sevLabel = count === 0 ? 'PASS' : c.sev;
+
+    const section = document.createElement('div');
+    section.className = 'section animate-in';
+    section.style.animationDelay = `${.05*idx}s`;
+    section.innerHTML = `
+      <div class="section-header" data-key="${c.key}">
+        <div class="left">
+          <span class="sev ${sevClass}">${sevLabel}</span>
+          <span class="title">${c.title}</span>
+          ${count > 0 && c.fix ? `<span class="correction-tag ${c.fix}">${c.fix === 'auto' ? '⚡ Auto-fixed' : '🔍 Manual review'}</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="count">${count === 0 ? '✓' : count}</span>
+          ${count > 0 ? `<span class="chevron ${isOpen?'open':''}">▾</span>` : ''}
+        </div>
+      </div>
+      ${count > 0 ? `<div class="section-body ${isOpen?'open':''}" id="body-${c.key}">
+        <div class="note">${c.note}</div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>${c.headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+            <tbody>${(c.limit ? items.slice(0, c.limit) : items).map(r=>`<tr>${c.rowFn(r)}</tr>`).join('')}
+            ${c.limit && items.length > c.limit ? `<tr><td colspan="${c.headers.length}" style="text-align:center;color:var(--text2);font-family:'DM Sans'">… and ${items.length - c.limit} more</td></tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+    `;
+    container.appendChild(section);
+  });
+
+  // Toggle sections
+  document.querySelectorAll('.section-header').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.key;
+      if (issues[key].length === 0) return;
+      openSections[key] = !openSections[key];
+      const body = document.getElementById(`body-${key}`);
+      const chev = el.querySelector('.chevron');
+      if (body) body.classList.toggle('open');
+      if (chev) chev.classList.toggle('open');
+    });
+  });
+}
+
+// ── DOWNLOAD ──
+function downloadCorrected() {
+  const clean = v => (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) ? undefined : v;
+  const rows = cleanData.map(r => ({
+    'Roadway': clean(r.roadway),
+    'Location': clean(r.location),
+    'Dir 1': clean(r.dir1),
+    'Volume 1': clean(r.vol1),
+    'Dir 2': clean(r.dir2),
+    'Volume 2': clean(r.vol2),
+    'Total Vol': clean(r.totalVol),
+    'Date': r.date instanceof Date ? r.date : (r.date ? new Date(r.date) : undefined),
+    'Type': clean(r.type),
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true });
+  // Format date column (H) 
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let r = range.s.r + 1; r <= range.e.r; r++) {
+    const cell = ws[XLSX.utils.encode_cell({r, c:7})];
+    if (cell && cell.t === 'd') cell.z = 'mm/dd/yyyy';
+  }
+  // Column widths
+  ws['!cols'] = [{ wch:22 },{ wch:28 },{ wch:6 },{ wch:10 },{ wch:6 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:8 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Corrected');
+  const outName = fileName.replace(/\.xlsx?$/i, '') + '_CORRECTED.xlsx';
+  XLSX.writeFile(wb, outName);
+}
+
+function resetApp() {
+  rawData = null; cleanData = null; issues = null; fileName = ''; openSections = {};
+  render();
+}
+
+// ── INIT ──
+render();
+</script>
+</body>
+</html>
